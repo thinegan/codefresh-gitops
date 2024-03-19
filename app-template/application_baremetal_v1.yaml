@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: <name-app>
+  # You'll usually want to add your resources to the argocd namespace.
+  namespace: argocd
+  # Add this finalizer ONLY if you want these to cascade delete.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  # Add labels to your application object.
+  labels:
+    name: <name-app>
+spec:
+  # The project the application belongs to.
+  project: <project>
+  source:
+    repoURL: <repoURL>
+    targetRevision: HEAD
+    path: <path>
+    helm:
+      parameters:
+        - name: "image.tag"
+          value: "<value>"
+        - name: "image.repository"
+          value: "<value>"
+    # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:018060997609:certificate/c0ec1332-0950-42e7-abd8-884415cbca69"
+
+      # Helm values files for overriding values in the helm chart
+      # The path is relative to the spec.source.path directory defined above
+      valueFiles:
+        - staging-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: <namespace>
+  # Sync policy
+  syncPolicy:
+    automated: # automated sync by default retries failed attempts 5 times with following delays between attempts ( 5s, 10s, 20s, 40s, 80s ); retry controlled using `retry` field.
+      prune: true # Specifies if resources should be pruned during auto-syncing ( false by default ).
+      selfHeal: false # Specifies if partial app sync should be executed when resources are changed only in target Kubernetes cluster and no git change detected ( false by default ).
+      allowEmpty: true # Allows deleting all application resources during automatic syncing ( false by default ).
+    syncOptions: # Sync options which modifies sync behavior
+      - Validate=false # disables resource validation (equivalent to 'kubectl apply --validate=false') ( true by default ).
+      - CreateNamespace=true # Namespace Auto-Creation ensures that namespace specified as the application destination exists in the destination cluster.
+      - PrunePropagationPolicy=foreground # Supported policies are background, foreground and orphan.
+      - PruneLast=true # Allow the ability for resource pruning to happen as a final, implicit wave of a sync operation
+    # The retry feature is available since v1.7
+    retry:
+      limit: 5 # number of failed sync attempt retries; unlimited number of attempts if less than 0
+      backoff:
+        duration: 5s # the amount to back off. Default unit is seconds, but could also be a duration (e.g. "2m", "1h")
+        factor: 2 # a factor to multiply the base duration after each failed retry
+        maxDuration: 3m # the maximum amount of time allowed for the backoff strategy
